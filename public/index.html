@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habitree - Login</title>
+    <link rel="stylesheet" href="./css/styles.css">
+    <link rel="shortcut icon" href="./logos/sem_nome.png" type="image/x-icon">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <img src="./logos/com_nome.png" alt="Logo" class="logo">
+        </header>
+        
+        <div class="content">
+            <h1 class="login-title">Login</h1>
+            
+            <form id="loginForm" class="login-box">
+                <input type="email" id="email" placeholder="E-mail: exemplo@email.com" class="input" required>
+                <input type="password" id="password" placeholder="Senha: *******" class="input" required>
+                <button type="submit" class="login-button">Entrar</button>
+            </form>            
+            
+            <p class="no-account-text">Não tem cadastro?</p>
+            <button class="signup-button" onclick="window.location.href='/signup'">Cadastre-se</button>
+        </div>
+    </div>
+
+    <script src="./js/script.js"></script>
+</body>
+</html>
