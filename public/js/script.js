@@ -4,6 +4,60 @@ document.addEventListener('DOMContentLoaded', () => {
     loadPageContent();
 });
 
+function openGoalModal() {
+    const modal = document.getElementById('goalModal');
+    modal.classList.add('active');
+    document.getElementById('goalForm').reset();
+}
+
+function closeGoalModal() {
+    const modal = document.getElementById('goalModal');
+    modal.classList.remove('active');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const goalForm = document.getElementById('goalForm');
+    const modal = document.getElementById('goalModal');
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeGoalModal();
+        }
+    });
+
+    if (goalForm) {
+        goalForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('goalTitle').value;
+            const deadline = document.getElementById('goalDeadline').value;
+            const difficulty = document.getElementById('goalDifficulty').value;
+            const token = localStorage.getItem('token');
+
+            try {
+                const response = await fetch('/api/goals', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ title, deadline, difficulty })
+                });
+
+                if (response.ok) {
+                    alert('Meta criada!');
+                    closeGoalModal();
+                    loadGoals(token); // já existe
+                } else {
+                    const error = await response.json();
+                    showError(error.message || 'Erro ao criar meta');
+                }
+            } catch {
+                showError('Erro de conexão');
+            }
+        });
+    }
+});
+
 
 async function checkAuth() {
     const token = localStorage.getItem('token');
@@ -16,20 +70,22 @@ async function checkAuth() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            console.log('Status da verificação:', response.status);
-
             if (!response.ok) {
-                console.error('Erro na resposta:', await response.json());
-                if (!publicPages.includes(currentPath)) window.location.href = '/';
-                return;
+                localStorage.removeItem('token');
+                throw new Error('Token inválido');
             }
 
             const user = await response.json();
-            if (publicPages.includes(currentPath)) window.location.href = '/main';
-
+            
+            // Redireciona de páginas públicas para /main
+            if (publicPages.includes(currentPath)) {
+                window.location.href = '/main';
+            }
         } catch (error) {
-            console.error('Erro na verificação:', error);
-            if (!publicPages.includes(currentPath)) window.location.href = '/';
+            console.error('Erro na autenticação:', error);
+            if (!publicPages.includes(currentPath)) {
+                window.location.href = '/';
+            }
         }
     } else if (!publicPages.includes(currentPath)) {
         window.location.href = '/';
@@ -115,6 +171,8 @@ async function handleRegister(e) {
 async function loadPageContent() {
     const path = window.location.pathname;
     const token = localStorage.getItem('token');
+    
+    console.log('Token no loadPageContent:', token); // Debug
 
     if (path === '/main') {
         await loadUserData(token);
@@ -122,12 +180,14 @@ async function loadPageContent() {
         await loadRanking(token);
     }
 
-    if (path === '/dashboard') {
-        await loadDashboardStats(token);
-        await loadGoals(token);
+    if (!token && ['/dashboard', '/ranking', '/main'].includes(path)) {
+        window.location.href = '/';
+        return;
     }
 
-    if (path === '/ranking') await loadFullRanking(token);
+    if (path === '/ranking') {
+        await loadFullRanking(token);
+    }
 }
 
 async function loadUserData(token) {
@@ -138,6 +198,7 @@ async function loadUserData(token) {
         if (!response.ok) throw new Error('Falha ao carregar dados');
 
         const user = await response.json();
+        console.log('Dados do usuário:', user);
         const greeting = document.querySelector('.greeting');
         if (greeting) greeting.textContent = `Olá, ${user.name}!`;
     } catch (error) {
@@ -158,8 +219,15 @@ async function loadGoals(token) {
             container.innerHTML = goals.map(goal => `
                 <div class="goal-item">
                     <h3>${goal.title}</h3>
-                    <p>${goal.description}</p>
-                    <p>Status: ${goal.status}</p>
+                    <p><strong>Prazo:</strong> ${new Date(goal.deadline).toLocaleDateString('pt-BR')}</p>
+                    <p><strong>Dificuldade:</strong> ${goal.difficulty}</p>
+                    <p><strong>Status:</strong> ${goal.status === 'em andamento' ? 'Em andamento' : 'Concluída'}</p>
+                    <div class="progress-container">
+                        <progress value="${goal.progress}" max="100"></progress>
+                        <span>${goal.progress}%</span>
+                    </div>
+                    ${goal.status === 'em andamento' ? 
+                        `<button onclick="completeGoal('${goal.id}')" class="complete-button">Concluir</button>` : ''}
                 </div>
             `).join('');
         }
@@ -168,14 +236,43 @@ async function loadGoals(token) {
     }
 }
 
-async function loadDashboardStats() {
+async function completeGoal(goalId) {
+    const token = localStorage.getItem('token');
     try {
-        const response = await fetch('/api/stats', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (!response.ok) throw new Error('Falha ao carregar estatísticas');
+        const response = await fetch(`/api/goals/${goalId}/complete`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
 
+        if (response.ok) {
+            alert('Meta concluída com sucesso!');
+            loadGoals(token);
+            loadRanking(token);
+        } else {
+            const error = await response.json();
+            showError(error.message || 'Erro ao concluir meta');
+        }
+    } catch (error) {
+        showError('Erro de conexão');
+    }
+}
+
+async function loadDashboardStats(token) {      
+    try {
+        const response = await fetch('/api/stats', { 
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            } 
+        });
+        
+        if (!response.ok) throw new Error('Falha ao carregar estatísticas');
         const stats = await response.json();
         updateDashboardStats(stats);
     } catch (error) {
+        console.error('Erro ao carregar stats:', error);
         showError('Falha ao carregar estatísticas');
     }
 }
@@ -200,9 +297,11 @@ function updateDashboardStats(stats) {
     }
 }
 
-async function loadRanking() {
+async function loadRanking(token) {
     try {
-        const response = await fetch('/api/ranking', { headers: { 'Authorization': `Bearer ${token}` }});
+        const response = await fetch('/api/ranking', { 
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (!response.ok) throw new Error('Falha ao carregar ranking');
 
         const { ranking, position } = await response.json();
@@ -211,7 +310,6 @@ async function loadRanking() {
         showError('Falha ao carregar ranking');
     }
 }
-
 async function loadFullRanking() {
     try {
         const response = await fetch('/api/ranking', { headers: { 'Authorization': `Bearer ${token}` } });

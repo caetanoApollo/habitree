@@ -1,5 +1,7 @@
 CREATE DATABASE habitree;
 
+DROP DATABASE habitree;
+
 USE habitree;
 
 CREATE TABLE users (
@@ -14,13 +16,12 @@ CREATE TABLE users (
 CREATE TABLE goals (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    title VARCHAR(100) NOT NULL,
-    description TEXT,
+    title VARCHAR(255) NOT NULL,
+    deadline DATE NOT NULL,
+    difficulty ENUM('fácil', 'média', 'difícil') NOT NULL,
+    status ENUM('em andamento', 'concluída') DEFAULT 'em andamento',
     progress INT DEFAULT 0,
-    target INT DEFAULT 100,
-    completed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE ranking (

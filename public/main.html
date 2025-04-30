@@ -12,13 +12,22 @@
         <header class="header">
             <img src="./logos/com_nome.png" alt="Logo" class="logo">
         </header>
-        
+
+        <nav class="menu">
+            <ul>
+                <li><a href="/main">Início</a></li>
+                <li><a href="/dashboard">Dashboard</a></li>
+                <li><a href="/ranking">Ranking</a></li>
+                <li><button class="logout-button" onclick="handleLogout()">Sair</button></li>
+            </ul>
+        </nav>
+
         <div class="content">
             <h1 class="greeting"></h1>
             
             <div class="main-sections">
                 <section class="goals-section">
-                    <h2 class="section-title">Metas 💹</h2>
+                    <h2 class="section-title">Metas 🎯</h2>
                     
                     <div class="goal-list">
                     
@@ -33,6 +42,38 @@
                     </div>
                 </section>
             </div>
+        </div>
+    </div>
+
+    <button class="add-goal-button" onclick="openGoalModal()">+ Nova Meta</button>
+
+    <div id="goalModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeGoalModal()">&times;</span>
+            <h3>Nova Meta</h3>
+            <form id="goalForm">
+                <div class="form-group">
+                    <label for="goalTitle">Título da Meta</label>
+                    <input type="text" id="goalTitle" placeholder="Ex: Ler 30 minutos por dia" required>
+                </div>
+                <div class="form-group">
+                    <label for="goalDeadline">Prazo</label>
+                    <input type="date" id="goalDeadline" required>
+                </div>
+                <div class="form-group">
+                    <label for="goalDifficulty">Dificuldade</label>
+                    <select id="goalDifficulty" required>
+                        <option value="">Selecione...</option>
+                        <option value="fácil">Fácil</option>
+                        <option value="média">Média</option>
+                        <option value="difícil">Difícil</option>
+                    </select>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="cancel-button" onclick="closeGoalModal()">Cancelar</button>
+                    <button type="submit" class="submit-button">Criar Meta</button>
+                </div>
+            </form>
         </div>
     </div>
 

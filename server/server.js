@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const path = require('path');
 const pool = require('./config/db');
+const cron = require('node-cron');
 
 const app = express();
 
@@ -15,30 +16,42 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
+app.use((req, res, next) => {
+    console.log('Headers recebidos:', req.headers);
+    next();
+});
 
 const authenticate = async (req, res, next) => {
+    console.log('Rota acessada:', req.path); // Debug
     const authHeader = req.headers.authorization;
-    console.log('authHeader:', authHeader);
     
-    if (!authHeader || !authHeader.startsWith('Bearer')) {
-        console.log('authHeader:', authHeader);
-        return res.status(401).json({ error: 'Não autenticado, erro no authHeader' });
+    if (!authHeader) {
+        console.error('Cabeçalho Authorization ausente');
+        return res.status(401).json({ error: 'Não autenticado, cabeçalho Authorization ausente' });
+    }
+
+    if (!authHeader.startsWith('Bearer ')) {
+        console.error('Formato de token inválido');
+        return res.status(401).json({ error: 'Formato de token inválido' });
     }
     
     const token = authHeader.split(' ')[1];
     try {
-        console.log('authHeader:', authHeader);
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const [rows] = await pool.query('SELECT id, username, email FROM users WHERE id = ?', [decoded.id]);
+        const [rows] = await pool.query(
+            'SELECT id, name, username, email FROM users WHERE id = ?', 
+            [decoded.id]
+        );
 
-        if (!rows || rows.length === 0) {
+        if (!rows.length) {
             return res.status(401).json({ error: 'Usuário não encontrado' });
         }
 
         req.user = rows[0];
         next();
     } catch (error) {
-        res.status(401).json({ error: 'Token inválido' });
+        console.error('Erro na autenticação:', error.message);
+        res.status(401).json({ error: 'Token inválido ou expirado' });
     }
 };
 
@@ -103,14 +116,17 @@ app.post('/api/auth/login', async (req, res) => {
             { expiresIn: '1h' }
         );
 
+        console.log('User object:', user);
+
         res.json({
             user: {
                 id: user.id,
-                name: user.name,
+                name: user.name || "Nome não disponível",
                 username: user.username,
                 email: user.email
             },
-            token 
+            token,
+            redirect: req.query.redirect || '/main'
         });
 
     } catch (error) {
@@ -119,7 +135,105 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+app.get('/api/stats', authenticate, async (req, res) => {
+    try {
+        const [stats] = await pool.query(`
+            SELECT 
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+                COUNT(*) as total
+            FROM goals 
+            WHERE user_id = ?
+        `, [req.user.id]);
+
+        res.json(stats[0]);
+    } catch (error) {
+        console.error('Erro ao buscar estatísticas:', error);
+        res.status(500).json({ error: 'Erro ao buscar estatísticas' });
+    }
+});
+
+app.post('/api/goals', authenticate, async (req, res) => {
+    try {
+        const { title, deadline, difficulty } = req.body;
+
+        if (!title || !deadline || !difficulty) {
+            return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
+        }
+
+        await pool.query(
+            'INSERT INTO goals (user_id, title, deadline, difficulty, status, progress) VALUES (?, ?, ?, ?, ?, ?)',
+            [req.user.id, title, deadline, difficulty, 'em andamento', 0]
+        );
+
+        res.status(201).json({ message: 'Meta criada com sucesso' });
+    } catch (error) {
+        console.error('Erro ao criar meta:', error);
+        res.status(500).json({ error: 'Erro interno ao criar meta' });
+    }
+});
+
+app.patch('/api/goals/:id/complete', authenticate, async (req, res) => {
+    const goalId = req.params.id;
+    const userId = req.user.id;
+
+    try {
+        // Verifica se a meta existe e pertence ao usuário
+        const [rows] = await pool.query(
+            'SELECT * FROM goals WHERE id = ? AND user_id = ?',
+            [goalId, userId]
+        );
+
+        const goal = rows[0];
+        if (!goal) return res.status(404).json({ error: 'Meta não encontrada' });
+
+        if (goal.status === 'concluída') {
+            return res.status(400).json({ error: 'Meta já concluída' });
+        }
+
+        // Atribui pontos com base na dificuldade
+        let pontos = 0;
+        if (goal.difficulty === 'fácil') pontos = 10;
+        else if (goal.difficulty === 'média') pontos = 20;
+        else if (goal.difficulty === 'difícil') pontos = 30;
+
+        // Atualiza meta e pontos do usuário
+        await pool.query('UPDATE goals SET status = ?, progress = 100 WHERE id = ?', ['concluída', goalId]);
+        await pool.query('UPDATE users SET points = points + ? WHERE id = ?', [pontos, userId]);
+
+        res.json({ message: 'Meta concluída e pontuação atualizada' });
+
+    } catch (error) {
+        console.error('Erro ao concluir meta:', error);
+        res.status(500).json({ error: 'Erro ao concluir meta' });
+    }
+});
+
+app.get('/api/ranking', authenticate, async (req, res) => {
+    try {
+        const [ranking] = await pool.query(
+            'SELECT username, points FROM users ORDER BY points DESC LIMIT 10'
+        );
+
+        const [position] = await pool.query(
+            `SELECT COUNT(*) AS position FROM users WHERE points > (
+                SELECT points FROM users WHERE id = ?
+            )`, [req.user.id]
+        );
+
+        res.json({
+            ranking,
+            position: position[0].position + 1
+        });
+    } catch (error) {
+        console.error('Erro ao buscar ranking:', error);
+        res.status(500).json({ error: 'Erro ao buscar ranking' });
+    }
+});
+
+
 app.get('/api/auth/me', authenticate, async (req, res) => {
+    console.log('Usuário autenticado:', req.user);
     res.json(req.user);
 });
 
@@ -145,7 +259,11 @@ app.get('/main', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/main.html'));
 });
 
-app.get('/dashboard', authenticate, (req, res) => {
+app.get('/ranking', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/ranking.html'));
+});
+
+app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/dashboard.html'));
 });
 
@@ -156,6 +274,23 @@ app.get('/signup', (req, res) => {
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
 });
+
+cron.schedule('0 0 * * *', async () => {
+    try {
+        const [expiredGoals] = await pool.query(
+            'SELECT id FROM goals WHERE deadline < CURDATE() AND status = "em andamento"'
+        );
+
+        for (const goal of expiredGoals) {
+            await pool.query('UPDATE goals SET progress = 0 WHERE id = ?', [goal.id]);
+        }
+
+        console.log(`Metas vencidas resetadas: ${expiredGoals.length}`);
+    } catch (error) {
+        console.error('Erro ao resetar metas vencidas:', error);
+    }
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

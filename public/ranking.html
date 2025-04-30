@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,58 +8,40 @@
     <link rel="stylesheet" href="./css/styles.css">
     <link rel="shortcut icon" href="./logos/sem_nome.png" type="image/x-icon">
 </head>
+
 <body>
-    <div class="container">
+    <div class="center">
         <header class="header">
             <img src="./logos/com_nome.png" alt="Logo" class="logo">
         </header>
-        
-        <div class="content">
-            <h1 class="title">Ranking</h1>
-            
-            <div class="ranking-list">
-                <div class="ranking-item">
-                    <span class="position">1°</span>
-                    <span class="user-icon">○</span>
-                    <span class="username">Fulano</span>
-                    <span class="points">25 pts</span>
-                </div>
-                
-                <div class="ranking-item">
-                    <span class="position">1°</span>
-                    <span class="user-icon">○</span>
-                    <span class="username">Fulano</span>
-                    <span class="points">25 pts</span>
-                </div>
-                
-                <div class="ranking-item">
-                    <span class="position">1°</span>
-                    <span class="user-icon">○</span>
-                    <span class="username">Fulano</span>
-                    <span class="points">25 pts</span>
-                </div>
-                
-                <div class="ranking-item">
-                    <span class="position">1°</span>
-                    <span class="user-icon">○</span>
-                    <span class="username">Fulano</span>
-                    <span class="points">25 pts</span>
-                </div>
-                
-                <div class="ranking-item">
-                    <span class="position">1°</span>
-                    <span class="user-icon">○</span>
-                    <span class="username">Fulano</span>
-                    <span class="points">25 pts</span>
-                </div>
+
+        <nav class="menu">
+            <ul>
+                <li><a href="/main">Início</a></li>
+                <li><a href="/dashboard">Dashboard</a></li>
+                <li><a href="/ranking">Ranking</a></li>
+                <li><button class="logout-button" onclick="handleLogout()">Sair</button></li>
+            </ul>
+        </nav>
+    </div>
+
+    <div class="content">
+        <h1 class="title">Ranking</h1>
+
+        <div class="ranking-list">
+            <div class="ranking-item">
+                <span class="position">1°</span>
+                <span class="user-icon">○</span>
+                <span class="username">Fulano</span>
+                <span class="points">25 pts</span>
             </div>
-            
-            <div class="user-position">
-                <p>Você está em 20º posição</p>
-            </div>
+        </div>
+
+        <div class="user-position">
         </div>
     </div>
 
     <script src="./js/script.js"></script>
 </body>
+
 </html>
